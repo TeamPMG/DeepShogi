@@ -86,19 +86,26 @@ class board:
         second_position = (9 - int(hand[2]),int(hand[3]) - 1)
         piece = hand[4:]
         
-        #元いた場所を空に
-        self.board[first_position[1]][first_position[0]] = "0" 
-        
-        #駒を取る時の処理
-        if self.board[second_position[1]][second_position[0]] != "0":
-            got_piece = self.board[second_position[1]][second_position[0]]
+        if (int(hand[0]),int(hand[1])) == (0,0):
             if piece[0] == "0":
-                self.P1_in_hand.append("0" + got_piece[1])
+                self.P1_in_hand.remove(piece)
             else:
-                self.P2_in_hand.append("1" + got_piece[1])
-         
-        #駒を置く処理
-        self.board[second_position[1]][second_position[0]] = piece #元いた場所を空に
+                self.P2_in_hand.remove(piece)
+            self.board[second_position[1]][second_position[0]] = piece
+        else:
+            #元いた場所を空に
+            self.board[first_position[1]][first_position[0]] = "0" 
+            
+            #駒を取る時の処理
+            if self.board[second_position[1]][second_position[0]] != "0":
+                got_piece = self.board[second_position[1]][second_position[0]]
+                if piece[0] == "0":
+                    self.P1_in_hand.append("0" + got_piece[1])
+                else:
+                    self.P2_in_hand.append("1" + got_piece[1])
+             
+            #駒を置く処理
+            self.board[second_position[1]][second_position[0]] = piece
         print("sex")
         print(first_position)
         print(second_position)
