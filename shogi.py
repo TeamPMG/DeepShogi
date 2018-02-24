@@ -1,5 +1,6 @@
 import numpy as np
-PIECE_DIC = {"0": "ー ",
+import random
+PIECE_DIC = {"2": "ー ",
              "01":"玉 ",
              "02":"飛 ","02+":"竜 ",
              "03":"角 ","03+":"馬 ",
@@ -21,17 +22,18 @@ class board:
     def __init__(self):
         self.board = [
          ["17","16","15","14","11","14","15","16","17"],
-         ["0" ,"12","0" ,"0" ,"0" ,"0" ,"0" ,"13","0"],
+         ["2" ,"12","2" ,"2" ,"2" ,"2" ,"2" ,"13","2"],
          ["18","18","18","18","18","18","18","18","18"],
-         ["0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ],
-         ["0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ],
-         ["0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ,"0" ],
+         ["2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ],
+         ["2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ],
+         ["2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ,"2" ],
          ["08","08","08","08","08","08","08","08","08"],
-         ["0" ,"03","0" ,"0" ,"0" ,"0" ,"0" ,"02","0" ],
+         ["2" ,"03","2" ,"2" ,"2" ,"2" ,"2" ,"02","2" ],
          ["07","06","05","04","01","04","05","06","07"]]
     
         self.P1_in_hand = []
         self.P2_in_hand = []
+        self.turn = 0
         
         
         """
@@ -94,10 +96,10 @@ class board:
             self.board[second_position[1]][second_position[0]] = piece
         else:
             #元いた場所を空に
-            self.board[first_position[1]][first_position[0]] = "0" 
+            self.board[first_position[1]][first_position[0]] = "2" 
             
             #駒を取る時の処理
-            if self.board[second_position[1]][second_position[0]] != "0":
+            if self.board[second_position[1]][second_position[0]] != "2":
                 got_piece = self.board[second_position[1]][second_position[0]]
                 if piece[0] == "0":
                     self.P1_in_hand.append("0" + got_piece[1])
@@ -106,8 +108,159 @@ class board:
              
             #駒を置く処理
             self.board[second_position[1]][second_position[0]] = piece
-        print("sex")
-        print(first_position)
-        print(second_position)
-        print(piece)
+        #手番の置き換え
+        if self.turn == 0:
+            self.turn = 1
+        else:
+            self.turn = 0
+            
+    def generate_move(self):
+        hand = []
+        for i in range(9):
+            for j in range(9):
+                hand.extend(self.generate_move_piece(i,j))
+        return hand
+    
+    def generate_move_piece(self,i_input,j_input):
+        #一つのコマを対象に、動けるところを返す
+        hand = []
+        if self.board[i_input][j_input][0] == str(self.turn):
+            if self.board[i_input][j_input][1] == "1":
+                hand = self.generate_move_king(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "2":
+                hand = self.generate_move_rook(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "3":
+                hand = self.generate_move_bishop(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "4":
+                hand = self.generate_move_gold(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "5":
+                hand = self.generate_move_silver(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "6":
+                hand = self.generate_move_knight(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "7":
+                hand = self.generate_move_lance(i_input,j_input)
+            elif self.board[i_input][j_input][1] == "8":
+                hand = self.generate_move_pawn(i_input,j_input)
+    
+        return hand
+    
+    def in_board(self,i_input,j_input):
+        if i_input >= 0 and i_input < 9:
+            if j_input >= 0 and j_input < 9:
+                return True
+        return False
+                            
+    def generate_move_king(self,i_input,j_input):
+        hand = []
+        directions = [(1,1),(1,0),(1,-1),(0,1),(0,-1),(-1,1),(-1,0),(-1,-1)]
+        hand.extend(self.generate_move_walk(i_input,j_input,directions))       
+        return hand
+    
+    def generate_move_rook(self,i_input,j_input):
+        hand = []
+        directions = [(1,0),(-1,0),(0,1),(0,-1)]
+        for direction in directions:
+            hand.extend(self.generate_move_jump(i_input,j_input,direction))
+        return hand
+
+    def generate_move_bishop(self,i_input,j_input):
+        hand = []
+        directions = [(1,1),(-1,1),(1,-1),(-1,-1)]
+        for direction in directions:
+            hand.extend(self.generate_move_jump(i_input,j_input,direction))
+        return hand
+    
+    def generate_move_gold(self,i_input,j_input):
+        hand = []
+        if self.board[i_input][j_input][0] == "0":
+            directions = [(1,0),(0,1),(0,-1),(-1,1),(-1,0),(-1,-1)]
+        else:
+            directions = [(1,1),(1,0),(1,-1),(0,1),(0,-1),(-1,0)]
+        hand.extend(self.generate_move_walk(i_input,j_input,directions))       
+        return hand
+    
+        
+    def generate_move_silver(self,i_input,j_input):
+        hand = []
+        if self.board[i_input][j_input][0] == "0":
+            directions = [(1,1),(1,-1),(-1,1),(-1,0),(-1,-1)]
+        else:
+            directions = [(1,1),(1,0),(1,-1),(-1,1),(-1,-1)]
+        hand.extend(self.generate_move_walk(i_input,j_input,directions))       
+        return hand
+    
+    def generate_move_knight(self,i_input,j_input):
+        hand = []
+        if self.board[i_input][j_input][0] == "0":
+            directions = [(-2,-1),(-2,1)]
+        else:
+            directions = [(2,-1),(2,1)]
+        hand.extend(self.generate_move_walk(i_input,j_input,directions))       
+        return hand
+    
+    def generate_move_lance(self,i_input,j_input):
+        hand = []
+        if self.board[i_input][j_input][0] == "0":
+            directions = [(-1,0)]
+        else:
+            directions = [(1,0)]
+        for direction in directions:
+            hand.extend(self.generate_move_jump(i_input,j_input,direction))
+        return hand
+    
+    def generate_move_pawn(self,i_input,j_input):
+        hand = []
+        if self.board[i_input][j_input][0] == "0":
+            directions = [(-1,0)]
+        else:
+            directions = [(1,0)]
+        hand.extend(self.generate_move_walk(i_input,j_input,directions))       
+        return hand
+    
+    def generate_move_jump(self,i_input,j_input,direction):
+        #俗にいう飛び道具のこと。directionで方向を指定する。
+        hand = []
+        i = 0
+        j = 0
+        i = i + direction[0]
+        j = j + direction[1]
+        if self.in_board(i_input + i,j_input + j):
+            while self.board[i_input + i][j_input + j][0] != str(self.turn):
+                if self.in_board(i_input + i,j_input + j):
+                    if self.board[i_input + i][j_input + j] == "2" \
+                    or self.board[i_input + i][j_input + j][0] != str(self.turn):
+                        hand.append(str(9 - j_input)+str(i_input + 1) + \
+                                    str(9 - (j_input + j))+str(i_input + i + 1) + \
+                                    self.board[i_input][j_input])
+                        if self.board[i_input + i][j_input + j] != "2" \
+                        and self.board[i_input + i][j_input + j][0] != str(self.turn): 
+                            break
+                else:
+                    break
+                i = i + direction[0]
+                j = j + direction[1]
+                if not self.in_board(i_input + i,j_input + j):
+                    break
+            
+        return hand
+    def generate_move_walk(self,i_input,j_input,directions):
+        #飛び道具ではない駒用
+        hand = []
+        for direction in directions:
+            i = direction[0]
+            j = direction[1]
+            if self.in_board(i_input + i,j_input + j):
+                if self.board[i_input + i][j_input + j] == "2" \
+                    or self.board[i_input + i][j_input + j][0] != str(self.turn):
+                        hand.append(str(9 - j_input)+str(i_input + 1) + \
+                                    str(9 - (j_input + j))+str(i_input + i + 1) + \
+                                    self.board[i_input][j_input])
+        return hand
+        
+def random_play():
+    random_board = board()
+    for i in range(100):
+        hand = random_board.generate_move()
+        random_board.move(hand[random.randint(0,len(hand)-1)])
+        random_board.print_board()
         
