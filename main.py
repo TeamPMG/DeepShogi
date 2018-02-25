@@ -121,7 +121,8 @@ class DeepShogi:
             #自己対局
             play_board = board()
             X_train = []
-            while play_board.win_lose() == 2:
+            move_count = 0
+            while play_board.win_lose() == 2 and move_count < 257:
                 sub_board = copy.deepcopy(play_board)
                 hands = play_board.generate_move()
                 value = []
@@ -135,16 +136,20 @@ class DeepShogi:
                 converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
                 X_train.append(converted)
                 play_board.print_board()
+                move_count = move_count + 1 
             
             #訓練データ用意
             X_train = np.array(X_train)
             y_train = np.zeros(len(X_train))
-            y_train[0:] = play_board.win_lose()
-            if len(y_train) % 2 == 0:
-                y_train[np.arange(0,len(y_train)-1,2)] = y_train[-1] * -1
+            if play_board.win_lose() == 0 or move_count ==  256:
+                y_train = np.zeros(len(X_train))
             else:
-                y_train[np.arange(1,len(y_train)-1,2)] = y_train[-1] * -1
-            
+                y_train = np.ones(len(X_train))
+                if len(y_train) % 2 == 0:
+                    y_train[np.arange(0,len(y_train)-1,2)] = -1
+                else:
+                    y_train[np.arange(1,len(y_train)-1,2)] = -1
+                
             y_train = y_train.reshape(len(y_train),1)
                 
             #訓練
