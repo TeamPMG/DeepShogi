@@ -165,22 +165,40 @@ class board:
                             hand.pop()
 
         #禁じ手を消す
+        
         if delete:
             legal_hand = []
             board_sub = copy.deepcopy(self.board)
             turn_sub = copy.deepcopy(self.turn)
             P1_in_hand_sub = copy.deepcopy(self.P1_in_hand)
             P2_in_hand_sub = copy.deepcopy(self.P2_in_hand)
-    
+         
             for try_hand in hand:
                 self.move(try_hand,False)
+
                 if not self.is_illegal():
                     legal_hand.append(try_hand)
+                    if try_hand[0:2] == "00" and try_hand[5:] == "8":
+                        #打ち歩詰め
+                        #print(try_hand)
+                        if turn_sub == 0:
+                            if board_sub[int(try_hand[3]) - 1 - 1][9 - int(try_hand[2])] == "11":
+                                if self.checkmate() == 1:
+                                    legal_hand.pop()
+                        else:
+                            if board_sub[int(try_hand[3]) - 1 + 1][9 - int(try_hand[2])] == "01":
+                                if self.checkmate() == -1:
+                                    legal_hand.pop()
+
                 self.board = copy.deepcopy(board_sub)
                 self.turn = copy.deepcopy(turn_sub)
                 self.P1_in_hand = copy.deepcopy(P1_in_hand_sub)
                 self.P2_in_hand = copy.deepcopy(P2_in_hand_sub)
+                
+
+                    
             return legal_hand
+
         
         return hand
     
@@ -461,12 +479,14 @@ class board:
         
 def random_play(step):
     random_board = board()
-    for i in range(step):
+    count = 0
+    while random_board.win_lose() == 2:
         hand = random_board.generate_move()
+        print(len(hand))
         random_board.move(hand[random.randint(0,len(hand)-1)])
-        random_board.print_board()
-    
-    hand = random_board.generate_move()
-    print(hand)
+        count = count + 1
+        if count % 100 == 0:
+            random_board.print_board()
+    random_board.print_board()
     #random_board.print_board()
         
