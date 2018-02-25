@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import copy
+import hashlib
 PIECE_DIC = {"2": "ー ",
              "01":"玉 ",
              "02":"飛 ","02+":"竜 ",
@@ -36,6 +37,9 @@ class board:
         self.P2_in_hand = []
         self.turn = 0
         
+        self.pre_board = []
+        self.pre_board.append(self.board_to_hash())
+        self.check_log = [0]
         
         """
         先手0
@@ -74,7 +78,7 @@ class board:
             line = line + PIECE_DIC[self.P1_in_hand[i]]
         print(line)
     
-    def move(self,hand):
+    def move(self,hand,make_hash = True):
         """
         handの形式
         最初の2桁は元の位置(持ち駒なら00)
@@ -115,6 +119,10 @@ class board:
         else:
             self.turn = 0
             
+        if make_hash:
+            self.pre_board.append(self.board_to_hash())
+            self.check_log.append(self.is_check())
+            
     def generate_move(self,delete = True):
         #盤面の駒を動かす
         hand = []
@@ -125,6 +133,7 @@ class board:
         hand = self.generate_promote(hand)
                 
         #駒を打つ
+
         if self.turn == 0:
             in_hand = self.P1_in_hand
         else:
@@ -146,13 +155,15 @@ class board:
                         if piece[1:] == "8" or piece[1:] == "7" or piece[1:] == "6":
                             if count > 0:
                                 hand.pop()
-                            elif str(self.turn) == 0:
+                            elif self.turn == 0:
                                 if i == 0 or (i == 1 and piece[1:] == "6"):
                                     hand.pop()
                             else:
                                 if i == 8 or (i == 7 and piece[1:] == "6"):
                                     hand.pop()
-        
+                        if hand.count(hand[-1]) > 1:
+                            hand.pop()
+
         #禁じ手を消す
         if delete:
             legal_hand = []
@@ -162,7 +173,7 @@ class board:
             P2_in_hand_sub = copy.deepcopy(self.P2_in_hand)
     
             for try_hand in hand:
-                self.move(try_hand)
+                self.move(try_hand,False)
                 if not self.is_illegal():
                     legal_hand.append(try_hand)
                 self.board = copy.deepcopy(board_sub)
@@ -341,7 +352,7 @@ class board:
         return False
     
     def generate_promote(self,hands):
-        hand = hands
+        hand = copy.deepcopy(hands)
         able_to_promote = ["2","3","5","6","7","8"]
         for i in range(len(hands)):
             if hands[i][5:] in able_to_promote:
@@ -363,7 +374,86 @@ class board:
                         hand.append(hands[i] + "+")        
         return hand
             
+    def win_lose(self):
+        """
+        先手勝ちなら1
+        後手勝ちなら-1
+        引き分けなら0を返す
+        また、まだ勝敗が決まってないなら2を返す。
+        """
+        is_checkmate = self.checkmate()
+        if is_checkmate == 0:
+            #千日手判定
+            if self.pre_board.count(self.pre_board[-1]) == 4:
+                first_index = self.pre_board.index(self.pre_board[-1])
+                check_in_repetition = self.check_log[first_index:]
+                if check_in_repetition.count(1) >= len(check_in_repetition) / 2:
+                    return -1
+                elif check_in_repetition.count(-1) >= len(check_in_repetition) / 2:
+                    return 1
+                    
+                return 0
+            
+            return 2
+            
+        else:
+            return is_checkmate
+        
+    def checkmate(self):
+        """
+        先手勝ち(後手玉が詰んでる)なら1
+        後手勝ち(先手玉が詰んでる)なら-1
+        引き分け(どちらの玉も詰んでない）なら0を返す
+        """
+        turn_sub = copy.deepcopy(self.turn)
+        
+        self.turn = 0
+        hand = self.generate_move()
+        if len(hand) == 0:
+            self.turn = turn_sub
+            return -1
+        
+        self.turn = 1
+        hand = self.generate_move()
+        if len(hand) == 0:
+            self.turn = turn_sub
+            return 1
+        self.turn = turn_sub
+        return 0
 
+    def board_to_hash(self):
+        string = str(self.board) + str(self.P1_in_hand) + str(self.P2_in_hand) + str(self.turn)
+        return hashlib.sha256(string.encode('utf-8')).hexdigest()
+
+    def is_check(self):
+        """
+        先手が王手を掛けているなら1
+        後手が王手を掛けているなら-1
+        どちらも掛けていないなら0
+        """
+        turn_sub = copy.deepcopy(self.turn)
+        self.turn = 0
+        hands = self.generate_move(False)
+        #王手がかかっているか
+        for hand in hands:
+            position = (9 - int(hand[2]),int(hand[3]) - 1)
+            if self.board[position[1]][position[0]] != "2":
+                if self.board[position[1]][position[0]][1] == "1":
+                    self.turn = turn_sub
+                    return 1
+                
+        self.turn = 1
+        hands = self.generate_move(False)
+        #王手がかかっているか
+        for hand in hands:
+            position = (9 - int(hand[2]),int(hand[3]) - 1)
+            if self.board[position[1]][position[0]] != "2":
+                if self.board[position[1]][position[0]][1] == "1":
+                    self.turn = turn_sub
+                    return -1
+        self.turn = turn_sub
+        return 0
+        
 
         
     
