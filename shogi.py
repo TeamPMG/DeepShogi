@@ -1,4 +1,3 @@
-import numpy as np
 import random
 import copy
 import hashlib
@@ -477,15 +476,14 @@ class board:
     
 
         
-def random_play(step):
+def random_play():
     random_board = board()
     count = 0
     while random_board.win_lose() == 2:
         hand = random_board.generate_move()
-        print(len(hand))
         random_board.move(hand[random.randint(0,len(hand)-1)])
         count = count + 1
-        if count % 100 == 0:
+        if count % 1 == 0:
             random_board.print_board()
     random_board.print_board()
     #random_board.print_board()
