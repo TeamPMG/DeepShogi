@@ -4,9 +4,12 @@ from keras.layers import Dense
 from keras.layers.core import Activation, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D
+from keras.optimizers import Adam
 DIM = 30
+NUM_EPOCH = 1000
 from shogi import board
 import copy
+
 """
 それぞれの駒(8+6 = 14)の位置(one-hot表現) * 2
 持ち駒がどれがいくつあるか * 2（テッペンは空白）
@@ -17,7 +20,7 @@ import copy
 class DeepShogi:
     def __init__(self):
         self.network = self.model()
-        print("sex")
+        #print("sex")
 
     def model(self):
         model = Sequential()
@@ -106,23 +109,53 @@ class DeepShogi:
         return converted
     
     def train(self):
-        play_board = board()
+        try:
+            self.network.load_weights('model.h5')
+        except:
+            print("model couldn't load")
+        opt = Adam(lr=1e-3)
+        self.network.compile(loss='mean_squared_error', optimizer=opt)
         
-        X_train = []
-        while play_board.win_lose() == 2:
-            sub_board = copy.deepcopy(play_board)
-            hands = play_board.generate_move()
-            value = []
-            for hand in hands:
-                play_board.move(hand)
+        
+        for epoch in range(NUM_EPOCH):
+            #自己対局
+            play_board = board()
+            X_train = []
+            while play_board.win_lose() == 2:
+                sub_board = copy.deepcopy(play_board)
+                hands = play_board.generate_move()
+                value = []
+                for hand in hands:
+                    play_board.move(hand)
+                    converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
+                    value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
+                    play_board = copy.deepcopy(sub_board)
+                index = max(enumerate(value), key=lambda value: value[1])[0]
+                play_board.move(hands[index])
                 converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
-                value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
-                play_board = copy.deepcopy(sub_board)
-            index = max(enumerate(value), key=lambda value: value[1])[0]
-            play_board.move(hands[index])
-            converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
-            X_train.append(converted)
-            play_board.print_board()
+                X_train.append(converted)
+                play_board.print_board()
+            
+            #訓練データ用意
+            X_train = np.array(X_train)
+            y_train = np.zeros(len(X_train))
+            y_train[0:] = play_board.win_lose()
+            if len(y_train) % 2 == 0:
+                y_train[np.arange(0,len(y_train)-1,2)] = y_train[-1] * -1
+            else:
+                y_train[np.arange(1,len(y_train)-1,2)] = y_train[-1] * -1
+            
+            y_train = y_train.reshape(len(y_train),1)
+                
+            #訓練
+            print(X_train.shape)
+            print(y_train.shape)
+            loss = self.network.train_on_batch(X_train,y_train)
+            print("epoch: %d,loss: %f" % (epoch,loss))
+            self.network.save_weights('model.h5')
+        
+        
+        
         
         
         
