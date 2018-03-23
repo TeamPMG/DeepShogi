@@ -171,7 +171,7 @@ class board:
             turn_sub = copy.deepcopy(self.turn)
             P1_in_hand_sub = copy.deepcopy(self.P1_in_hand)
             P2_in_hand_sub = copy.deepcopy(self.P2_in_hand)
-         
+
             for try_hand in hand:
                 self.move(try_hand,False)
 
@@ -197,7 +197,7 @@ class board:
 
                     
             return legal_hand
-
+        
         
         return hand
     
@@ -359,6 +359,7 @@ class board:
         return hand
     
     def is_illegal (self):
+        '''
         hands = self.generate_move(False)
         #王手がかかっているか
         for hand in hands:
@@ -366,6 +367,7 @@ class board:
             if self.board[position[1]][position[0]] != "2":
                 if self.board[position[1]][position[0]][1] == "1":
                     return True
+        '''
         return False
     
     def generate_promote(self,hands):

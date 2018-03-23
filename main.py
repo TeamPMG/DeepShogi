@@ -125,7 +125,7 @@ class DeepShogi:
         #左上から順に1から8、桂馬は左から9,10
         
         if hand[0:2] == "00":
-            in_hand = hand[5]
+            in_hand = int(hand[5])
             return 27 * position + 19 + (in_hand - 1)
         else:
             relative = (int(hand[2]) - int(hand[0]),int(hand[3]) - int(hand[1]))
@@ -185,28 +185,40 @@ class DeepShogi:
                 X_train = []
                 move_count = 0
                 while play_board.win_lose() == 2 and move_count < 512:
-                    sub_board = copy.deepcopy(play_board)
+                    #sub_board = copy.deepcopy(play_board)
                     hands = play_board.generate_move()
-                    value = []
+                    #value = []
+                    legal_policy = []
+                    converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
+                    predicted = self.network.predict(converted.reshape(1,DIM,9,9))
+                    p = predicted[0] #確率
+                    print(p.shape)
+                    legal_policy_p = []
                     for hand in hands:
+                        legal_policy.append(self.convert_hand(play_board.board,hand))
+                        legal_policy_p.append(p[0][legal_policy[-1]])
+                        '''
                         play_board.move(hand)
                         converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
                         converted = converted + np.random.normal(0,randomness,(DIM,9,9))
                         value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
-                        '''
+                        
                         if play_board.turn == 1:
                             value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
                         else:
                             value.append(self.network2.predict(converted.reshape(1,DIM,9,9)))
-                        '''
+                        
                         play_board = copy.deepcopy(sub_board)
-                    index = max(enumerate(value), key=lambda value: value[1])[0]
-                    play_board.move(hands[index])
+                        '''
+                    legal_policy_p = np.array(legal_policy_p)
+                    print(legal_policy_p.shape)
+                    legal_policy_p = np.exp(legal_policy_p) / np.sum(np.exp(legal_policy_p))
+                    play_board.move(np.random.choice(hands,p=legal_policy_p))
                     converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
                     X_train.append(converted)
                     play_board.print_board()
                     move_count = move_count + 1 
-                
+                return (play_board.win_lose(),move_count)
                 #訓練データ用意
                 X_train = np.array(X_train)
                 y_train = np.zeros(len(X_train))
