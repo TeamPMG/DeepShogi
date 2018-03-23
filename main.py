@@ -1,11 +1,12 @@
 import numpy as np
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers.core import Activation, Flatten
+from keras.models import Sequential,Model
+from keras.layers import Dense, Input
+from keras.layers.core import Activation, Flatten,Dropout,Reshape
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D
 from keras.optimizers import Adam
 DIM = 30
+POLICY = 2187
 NUM_EPOCH = 1000
 from shogi import board
 import copy
@@ -20,36 +21,47 @@ import copy
 class DeepShogi:
     def __init__(self):
         self.network = self.model()
+        #self.network2 = self.model()
         #print("sex")
 
     def model(self):
-        model = Sequential()
-        model.add(Conv2D(256, (5, 5), padding='same', input_shape=(DIM,9, 9, )))
-        #model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(256, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(128, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(64, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(32, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(16, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-        model.add(Conv2D(8, (3, 3), padding='same'))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
+        board = Input(shape=(DIM,9,9,))
+        x = Conv2D(128, (3, 3), padding='same')(board)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2D(128, (3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        print(x.shape)
         
-        model.add(Flatten())
+        x = Conv2D(1, (1, 1), padding='same')(x)
+        x = Activation('relu')(x)
+        x = Reshape((9*9,))(x)
         
-        model.add(Dense(1))
-        model.add(Activation('tanh'))
+        policy = Dense(POLICY)(x)
+        policy = Activation('softmax')(policy)
+        
+        value = Dense(1)(x)
+        value = Activation('tanh')(value)
+        
+        model = Model(inputs=board, outputs=[policy,value])
         '''
         自分側（たった今指し終わった方)が勝ちなら1
         自分側が負けなら-1
@@ -107,60 +119,120 @@ class DeepShogi:
         
             
         return converted
+    def convert_hand(self,board,hand):
+        #91の指して,91の指して,11の指して....91の指して,92の指して,
+        position = (int(hand[3]) - 1) * 9 + (9 - int(hand[2])) 
+        #左上から順に1から8、桂馬は左から9,10
+        
+        if hand[0:2] == "00":
+            in_hand = hand[5]
+            return 27 * position + 19 + (in_hand - 1)
+        else:
+            relative = (int(hand[2]) - int(hand[0]),int(hand[3]) - int(hand[1]))
+            if relative[0] == 0:
+                #縦
+                if relative[1] > 0:
+                    direction = 1
+                else:
+                    direction = 6
+            
+            elif relative[1] == 0:
+                #横
+                if relative[0] > 0:
+                    direction = 4
+                else:
+                    direction = 3
+            
+            elif abs(relative[0]) == abs(relative[1]):
+                #斜め
+                if relative[0] > 0:
+                    if relative[1] > 0:
+                        direction = 2
+                    else:
+                        direction = 7
+                else:
+                    if relative[1] > 0:
+                        direction = 0
+                    else:
+                        direction = 5
+            else:
+                #桂馬
+                if relative[0] > 0:
+                    direction = 9
+                else:
+                    direction = 8
+            if hand[-1] == "+":
+                if board[int(hand[1]) - 1][9 - int(hand[0])][-1] != "+":
+                    return 27 * position + 10 + direction
+            return 27 * position + direction
+
     
     def train(self):
         try:
             self.network.load_weights('model.h5')
+            #self.network2.load_weights('model.h5')
         except:
             print("model couldn't load")
-        opt = Adam(lr=1e-3)
+        opt = Adam(lr=1e-1)
         self.network.compile(loss='mean_squared_error', optimizer=opt)
         
         
         for epoch in range(NUM_EPOCH):
-            #自己対局
-            play_board = board()
-            X_train = []
-            move_count = 0
-            while play_board.win_lose() == 2 and move_count < 257:
-                sub_board = copy.deepcopy(play_board)
-                hands = play_board.generate_move()
-                value = []
-                for hand in hands:
-                    play_board.move(hand)
+            randomness = 0.3
+            while(100):
+                #自己対局
+                play_board = board()
+                X_train = []
+                move_count = 0
+                while play_board.win_lose() == 2 and move_count < 512:
+                    sub_board = copy.deepcopy(play_board)
+                    hands = play_board.generate_move()
+                    value = []
+                    for hand in hands:
+                        play_board.move(hand)
+                        converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
+                        converted = converted + np.random.normal(0,randomness,(DIM,9,9))
+                        value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
+                        '''
+                        if play_board.turn == 1:
+                            value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
+                        else:
+                            value.append(self.network2.predict(converted.reshape(1,DIM,9,9)))
+                        '''
+                        play_board = copy.deepcopy(sub_board)
+                    index = max(enumerate(value), key=lambda value: value[1])[0]
+                    play_board.move(hands[index])
                     converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
-                    value.append(self.network.predict(converted.reshape(1,DIM,9,9)))
-                    play_board = copy.deepcopy(sub_board)
-                index = max(enumerate(value), key=lambda value: value[1])[0]
-                play_board.move(hands[index])
-                converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
-                X_train.append(converted)
-                play_board.print_board()
-                move_count = move_count + 1 
-            
-            #訓練データ用意
-            X_train = np.array(X_train)
-            y_train = np.zeros(len(X_train))
-            if play_board.win_lose() == 0 or move_count ==  256:
+                    X_train.append(converted)
+                    play_board.print_board()
+                    move_count = move_count + 1 
+                
+                #訓練データ用意
+                X_train = np.array(X_train)
                 y_train = np.zeros(len(X_train))
-            else:
-                y_train = np.ones(len(X_train))
-                if len(y_train) % 2 == 0:
-                    y_train[np.arange(0,len(y_train)-1,2)] = -1
+                if play_board.win_lose() == 0 or not(move_count < 512):
+                    y_train = np.zeros(len(X_train))
                 else:
-                    y_train[np.arange(1,len(y_train)-1,2)] = -1
-                
-            y_train = y_train.reshape(len(y_train),1)
-                
-            #訓練
-            print(X_train.shape)
-            print(y_train.shape)
-            loss = self.network.train_on_batch(X_train,y_train)
-            print("epoch: %d,loss: %f" % (epoch,loss))
-            self.network.save_weights('model.h5')
+                    y_train = np.ones(len(X_train))
+                    if len(y_train) % 2 == 0:
+                        y_train[np.arange(0,len(y_train)-1,2)] = -1
+                    else:
+                        y_train[np.arange(1,len(y_train)-1,2)] = -1
+                    
+                y_train = y_train.reshape(len(y_train),1)
+                    
+                #訓練
+                print(y_train[-1])
+                print(move_count)
+                loss = self.network.train_on_batch(X_train,y_train)
+                print("epoch: %d,loss: %f" % (epoch,loss))
+                self.network.save_weights('model.h5')
+            
+            #self.network2.load_weights('model.h5')
+"""       
+if __name__ == '__main__':
+    ds = DeepShogi()
+    ds.train()        
         
-        
-        
-        
-        
+"""      
         

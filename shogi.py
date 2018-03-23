@@ -439,7 +439,10 @@ class board:
         return 0
 
     def board_to_hash(self):
-        string = str(self.board) + str(self.P1_in_hand) + str(self.P2_in_hand) + str(self.turn)
+        string = str(self.board)
+        string = hashlib.sha256(string.encode('utf-8')).hexdigest() + str(self.P1_in_hand)
+        string = hashlib.sha256(string.encode('utf-8')).hexdigest() + str(self.P2_in_hand)
+        string = hashlib.sha256(string.encode('utf-8')).hexdigest() + str(self.turn)
         return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
     def is_check(self):
