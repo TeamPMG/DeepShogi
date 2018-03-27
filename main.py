@@ -8,8 +8,11 @@ from keras.optimizers import Adam
 DIM = 30
 POLICY = 2187
 NUM_EPOCH = 1000
-from shogi import board
+EPSILON = 0.001
+from shogi_myself import board
 import copy
+import math
+import time
 
 """
 それぞれの駒(8+6 = 14)の位置(one-hot表現) * 2
@@ -178,13 +181,12 @@ class DeepShogi:
         
         
         for epoch in range(NUM_EPOCH):
-            randomness = 0.3
             while(100):
                 #自己対局
                 play_board = board()
                 X_train = []
                 move_count = 0
-                while play_board.win_lose() == 2 and move_count < 512:
+                while play_board.win_lose() == 2:# and move_count < 512:
                     #sub_board = copy.deepcopy(play_board)
                     hands = play_board.generate_move()
                     #value = []
@@ -241,10 +243,93 @@ class DeepShogi:
                 self.network.save_weights('model.h5')
             
             #self.network2.load_weights('model.h5')
+        
+    def play_outs(self,rollouts,board):
+            
+        #その局面での手ごとの訪問回数を返す
+        hashes = []
+        nodes = []
+        play_board = copy.deepcopy(board)
+        nodes.append(node(play_board,-1))
+        hashes.append(nodes[-1].hash)
+        for i in range(rollouts):
+            
+            play_board = copy.deepcopy(board)
+            while play_board.win_lose() == 2:# and move_count < 512:
+                hands = play_board.generate_move()
+                converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
+                predicted = self.network.predict(converted.reshape(1,DIM,9,9))
+                p = predicted[0][0] #確率
+
+                if play_board.pyshogi.zobrist_hash() in hashes:
+                    index = hashes.index(play_board.pyshogi.zobrist_hash())
+                else:
+                    return "error"
+                nodes[index].move_count += 1
+                U_s_a = []
+                Q_s_a = []
+                timer = time.time()
+                for hand in hands:
+                    play_board.move(hand)
+                    
+                    if play_board.pyshogi.zobrist_hash() in hashes:
+                        child_index = hashes.index(play_board.pyshogi.zobrist_hash())
+                        U_s_a.append(math.sqrt(nodes[index].move_count) / (nodes[child_index].move_count + 1))
+                        U_s_a[-1] = U_s_a[-1] * p[self.convert_hand(play_board.board,hand)]
+                        Q_s_a.append(nodes[child_index].value / (nodes[child_index].move_count + EPSILON))  
+                    else:
+                        U_s_a.append(math.sqrt(nodes[index].move_count) / 1)
+                        U_s_a[-1] = U_s_a[-1] * p[self.convert_hand(play_board.board,hand)]
+                        Q_s_a.append(0.5)
+                    
+                    #play_board = copy.deepcopy(sub_board)
+                    play_board.pop()
+                    play_board.print_board()
+                    
+
+                print(timer - time.time())   
+                UCBT = np.array(Q_s_a) + np.array(U_s_a)
+                max_index = max(enumerate(UCBT), key=lambda UCBT: UCBT[1])[0]
+
+                play_board.move(hands[max_index])
+                if play_board.pyshogi.zobrist_hash() in hashes:
+                    child_index = hashes.index(play_board.pyshogi.zobrist_hash())
+                else:
+                    nodes.append(node(play_board,index))
+                    hashes.append(nodes[-1].hash)
+                    child_index = len(nodes) - 1 
+                play_board.print_board()
+                print(len(nodes))
+            
+            index = child_index
+            value = play_board.win_lose()
+            print(value)
+            while index == -1:
+                nodes[index].value += value
+                index = nodes[index].parend_index
+                value = value * -1               
+                
+            
+
+        return nodes
+            
+class node:
+    def __init__(self,board,parent):
+        self.hash = board.pyshogi.zobrist_hash() #ハッシュ
+        self.moves = board.pyshogi.move_number #手数
+        self.move_count = 0 #ノードにきた回数
+        self.win = 0.0 #ノードの勝率合計
+        self.value = 0.0 #valueネットワークの予測の合計
+        self.child_index = None #子ノードのインデックス
+        self.child_move_count = 0 #子ノードの訪問回数
+        self.child_win = 0 #子ノードの勝率
+        self.parent_index = parent #親ノードのindex
+        
 """       
 if __name__ == '__main__':
     ds = DeepShogi()
     ds.train()        
         
-"""      
+"""  
+ds = DeepShogi()    
         

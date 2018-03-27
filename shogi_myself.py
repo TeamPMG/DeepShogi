@@ -1,6 +1,9 @@
 import random
 import copy
 import hashlib
+import shogi as S
+
+
 PIECE_DIC = {"2": "ー ",
              "01":"玉 ",
              "02":"飛 ","02+":"竜 ",
@@ -39,6 +42,7 @@ class board:
         self.pre_board = []
         self.pre_board.append(self.board_to_hash())
         self.check_log = [0]
+        self.pyshogi = S.Board()
         
         """
         先手0
@@ -76,6 +80,20 @@ class board:
         for i in range(len(self.P1_in_hand)):
             line = line + PIECE_DIC[self.P1_in_hand[i]]
         print(line)
+    def pop(self):
+        '''
+        self.board = copy.deepcopy(self.pre_board)
+        self.P1_in_hand = copy.deepcopy(self.pre_P1_in_hand)
+        self.P2_in_hand = copy.deepcopy(self.pre_P2_in_hand)
+        self.turn = copy.deepcopy(self.pre_turn)
+        '''
+        self.board = self.pre_board
+        self.P1_in_hand = self.pre_P1_in_hand
+        self.P2_in_hand = self.pre_P2_in_hand
+        self.turn = self.pre_turn
+        self.pyshogi.pop()
+        
+    
     
     def move(self,hand,make_hash = True):
         """
@@ -87,6 +105,12 @@ class board:
         例えば初手７六歩なら、777608 
         角道を開けあった後の２二角成なら、882203+
         """
+        self.pre_board = copy.deepcopy(self.board)
+        self.pre_P1_in_hand = copy.deepcopy(self.P1_in_hand)
+        self.pre_P2_in_hand = copy.deepcopy(self.P2_in_hand)
+        self.pre_turn = copy.deepcopy(self.turn)
+        
+        
         
         first_position = (9 - int(hand[0]),int(hand[1]) - 1)
         second_position = (9 - int(hand[2]),int(hand[3]) - 1)
@@ -117,12 +141,43 @@ class board:
             self.turn = 1
         else:
             self.turn = 0
-            
+        self.pyshogi.push(S.Move.from_usi(self.move_dict[hand]))
+
+        '''
         if make_hash:
             self.pre_board.append(self.board_to_hash())
             self.check_log.append(self.is_check())
+        print(self.move_dict)
+        '''
             
     def generate_move(self,delete = True):
+        chars = ["a","b","c","d","e","f","g","h","i"]
+        pieces = ["K","R","B","G","S","N","L","P"]
+        hands = []
+        turn = str(self.turn)
+        self.move_dict = {}
+        for Move in self.pyshogi.legal_moves:
+            move = Move.usi()
+            #print(move)
+            if move[0].isdigit():
+                place_1 = move[0] + str(chars.index(move[1]) + 1)
+                place_2 = move[2] + str(chars.index(move[3]) + 1)
+                piece = self.board[int(place_1[1]) - 1][9 - int(place_1[0])]
+                if move[-1] == "+":
+                    piece = piece + "+"
+            else:
+                piece = pieces.index(move[0]) + 1
+                piece = turn + str(piece)
+                place_1 = "00"
+                place_2 = move[2] + str(chars.index(move[3]) + 1)
+            
+            hand = place_1 + place_2 + piece
+            hands.append(hand)
+            #print(hand)
+            self.move_dict[hand] = move
+        #print(self.move_dict)
+        return hands
+        '''
         #盤面の駒を動かす
         hand = []
         for i in range(9):
@@ -200,6 +255,7 @@ class board:
         
         
         return hand
+        '''
     
     def generate_move_piece(self,i_input,j_input):
         #一つのコマを対象に、動けるところを返す
