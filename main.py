@@ -253,8 +253,8 @@ class DeepShogi:
         nodes.append(node(play_board,-1))
         hashes.append(nodes[-1].hash)
         for i in range(rollouts):
-            
             play_board = copy.deepcopy(board)
+            timer = time.time()
             while play_board.win_lose() == 2:# and move_count < 512:
                 hands = play_board.generate_move()
                 converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
@@ -265,50 +265,54 @@ class DeepShogi:
                     index = hashes.index(play_board.pyshogi.zobrist_hash())
                 else:
                     return "error"
-                nodes[index].move_count += 1
                 U_s_a = []
                 Q_s_a = []
-                timer = time.time()
+
                 for hand in hands:
                     play_board.move(hand)
                     
                     if play_board.pyshogi.zobrist_hash() in hashes:
                         child_index = hashes.index(play_board.pyshogi.zobrist_hash())
                         U_s_a.append(math.sqrt(nodes[index].move_count) / (nodes[child_index].move_count + 1))
-                        U_s_a[-1] = U_s_a[-1] * p[self.convert_hand(play_board.board,hand)]
-                        Q_s_a.append(nodes[child_index].value / (nodes[child_index].move_count + EPSILON))  
+                        U_s_a[-1] = U_s_a[-1] * p[self .convert_hand(play_board.board,hand)]
+                        Q_s_a.append(nodes[child_index].value / nodes[child_index].move_count)  
                     else:
                         U_s_a.append(math.sqrt(nodes[index].move_count) / 1)
                         U_s_a[-1] = U_s_a[-1] * p[self.convert_hand(play_board.board,hand)]
-                        Q_s_a.append(0.5)
+                        Q_s_a.append(0)
                     
                     #play_board = copy.deepcopy(sub_board)
                     play_board.pop()
-                    play_board.print_board()
                     
 
-                print(timer - time.time())   
+                
                 UCBT = np.array(Q_s_a) + np.array(U_s_a)
                 max_index = max(enumerate(UCBT), key=lambda UCBT: UCBT[1])[0]
 
                 play_board.move(hands[max_index])
+                #play_board.print_board()
                 if play_board.pyshogi.zobrist_hash() in hashes:
                     child_index = hashes.index(play_board.pyshogi.zobrist_hash())
                 else:
                     nodes.append(node(play_board,index))
                     hashes.append(nodes[-1].hash)
                     child_index = len(nodes) - 1 
-                play_board.print_board()
-                print(len(nodes))
-            
-            index = child_index
-            value = play_board.win_lose()
-            print(value)
-            while index == -1:
-                nodes[index].value += value
-                index = nodes[index].parend_index
-                value = value * -1               
+                    break
                 
+            print(time.time() - timer)
+            index = child_index
+            converted = self.convert(play_board.board,play_board.P1_in_hand,play_board.P2_in_hand,play_board.turn)
+            predicted = self.network.predict(converted.reshape(1,DIM,9,9))
+            #return predicted
+            value = predicted[1][0][0]
+            
+            while index != -1:
+                nodes[index].value += value
+                nodes[index].move_count += 1
+                index = nodes[index].parent_index
+                value = value * -1     
+            
+            #return nodes
             
 
         return nodes
